@@ -5,14 +5,12 @@ import {Image, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import AddTransactionScreen from '../screens/AddTransactionScreen';
 import HomeScreen from '../screens/HomeScreen';
 import SplashScreen from '../screens/SplashScreen';
-import {TransactionScreen} from '../screens/Transaction';
 import StatiticsScreen from '../screens/StatiticsScreen';
+import {TransactionScreen} from '../screens/Transaction';
+import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
-const ProfileScreen = () => {
-  return <View></View>;
-};
 
 const AppStack = () => {
   return (
@@ -163,7 +161,7 @@ const BottomTabs = () => {
       />
       <Tab.Screen
         name="ProfileScreen"
-        component={StatiticsScreen}
+        component={ProfileScreen}
         options={{
           tabBarIcon: ({focused}) => (
             <View

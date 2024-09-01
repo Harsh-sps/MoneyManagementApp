@@ -5,25 +5,16 @@
  * @format
  */
 
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import React from 'react';
-import {
-  Image,
-  SafeAreaView,
-  StatusBar,
-  TouchableOpacity,
-  useColorScheme,
-  View,
-} from 'react-native';
+import {useColorScheme} from 'react-native';
 
-import {Colors} from 'react-native/Libraries/NewAppScreen';
-import SplashScreen from './src/screens/SplashScreen';
 import {NavigationContainer} from '@react-navigation/native';
-import Tabs from './src/navigation/tabs';
+import {Colors} from 'react-native/Libraries/NewAppScreen';
+import {Provider} from 'react-redux';
 import AppStack from './src/navigation/tabs';
+import store from './src/store/store';
 
-
-function App(): React.JSX.Element {
+function MainApp(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
@@ -37,11 +28,19 @@ function App(): React.JSX.Element {
     //     backgroundColor={backgroundStyle.backgroundColor}
     //   />
 
-      <NavigationContainer>
-        <AppStack></AppStack>
-      </NavigationContainer>
+    <NavigationContainer>
+      <AppStack></AppStack>
+    </NavigationContainer>
     // </SafeAreaView>
   );
 }
+
+const App = () => {
+  return (
+    <Provider store={store}>
+      <MainApp />
+    </Provider>
+  );
+};
 
 export default App;

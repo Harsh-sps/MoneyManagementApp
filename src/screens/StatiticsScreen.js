@@ -1,28 +1,34 @@
 import React, {useState} from 'react';
 import {
-  ProgressBarAndroidBase,
+  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
-import {DonutChart} from 'rn-circular-chart';
-import {TopHeader} from './Transaction';
-import {SceneMap, TabView} from 'react-native-tab-view';
 import * as Progress from 'react-native-progress';
+import {SceneMap, TabView} from 'react-native-tab-view';
+import {useSelector} from 'react-redux';
+import {DonutChart} from 'rn-circular-chart';
+import {separateTransactions} from '../constants/SeparateTransactions';
+import {TopHeader} from './Transaction';
+import {formatData} from '../constants/ChartData';
+import {combineIncomeAndExpenses} from '../constants/IncomeAndExpenses';
 
-const Data = [
-  {name: 'my Name', value: 1000, color: '#AA86F7'},
-  {name: 'Name', value: 3000, color: '#94D5FA'},
-  {name: 'ac Name', value: 4000, color: '#8F9FF5'},
-];
+const Chart = ({transaction, totalLabel}) => {
+  if (!transaction || transaction.length === 0) {
+    return (
+      <View style={styles.donutView}>
+        <Text>No transactions data available</Text>
+      </View>
+    );
+  }
 
-const Chart = () => {
   return (
     <View style={styles.donutView}>
       <DonutChart
-        data={Data}
+        data={formatData(transaction)}
         strokeWidth={15}
         radius={80}
         containerHeight={105 * 2}
@@ -33,13 +39,13 @@ const Chart = () => {
         animationType="slide"
         centerLabel={{
           label: '',
-          labelValue: '₹94000.0',
+          labelValue: totalLabel,
         }}></DonutChart>
     </View>
   );
 };
 
-const CategoryItem = ({color, totalAmount, currentAmount}) => {
+const CategoryItem = ({color, totalAmount, currentAmount, category}) => {
   return (
     <View style={styles.categoryItemParentView}>
       <View style={styles.categoryTopView}>
@@ -50,9 +56,9 @@ const CategoryItem = ({color, totalAmount, currentAmount}) => {
               styles.bulletView,
             ]}
           />
-          <Text style={styles.categoryText}>Subscription</Text>
+          <Text style={styles.categoryText}>{category}</Text>
         </View>
-        <Text style={styles.amountText}>5210</Text>
+        <Text style={styles.amountText}>{currentAmount}</Text>
       </View>
       <CommonProgressBar
         current={currentAmount}
@@ -63,40 +69,44 @@ const CategoryItem = ({color, totalAmount, currentAmount}) => {
   );
 };
 
-const FirstRoute = () => {
+const FirstRoute = ({transaction, isExpenses}) => {
+  if (!transaction || transaction.length === 0) {
+    return (
+      <View style={styles.emptyView}>
+        <Text>
+          {isExpenses
+            ? 'No expense data available'
+            : 'No income data available'}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View>
-      <CategoryItem
-        color={'#FCAC12'}
-        totalAmount={10000}
-        currentAmount={5000}
-      />
-      <CategoryItem
-        color={'#7F3DFF'}
-        totalAmount={10000}
-        currentAmount={5000}
-      />
-      <CategoryItem
-        color={'#FD3C4A'}
-        totalAmount={10000}
-        currentAmount={5000}
-      />
-      <CategoryItem
-        color={'#FCAC12'}
-        totalAmount={10000}
-        currentAmount={5000}
-      />
+      <FlatList
+        data={transaction}
+        renderItem={({item, index}) => (
+          <CategoryItem
+            color={item.moneyTransaction.color}
+            totalAmount={50000}
+            currentAmount={item.moneyTransaction.amount}
+            category={item.moneyTransaction.finalCategory}
+          />
+        )}
+        keyExtractor={item => item.id.toString()}></FlatList>
     </View>
   );
 };
-const renderScene = SceneMap({
-  expenses: FirstRoute,
-  income: FirstRoute,
-});
 
-const CustomTabView = () => {
+const CustomTabView = ({transactions, index, setIndex}) => {
+  const renderScene = SceneMap({
+    expenses: () => <FirstRoute transaction={transactions} isExpenses={true} />,
+    income: () => <FirstRoute transaction={transactions} isExpenses={false} />,
+  });
+
   const layout = useWindowDimensions();
-  const [index, setIndex] = useState(0);
+  // const [index, setIndex] = useState(0);
   const [routes] = useState([
     {key: 'expenses', title: 'Expense'},
     {key: 'income', title: 'Income'},
@@ -147,14 +157,26 @@ const CommonProgressBar = ({current, total, color}) => {
 };
 
 const StatiticsScreen = ({route, navigation}) => {
+  const transactions = useSelector(state => state.transactions);
+  const {expenses, incomes} = separateTransactions(transactions);
+  const [index, setIndex] = useState(0);
+  const {totalIncome = 0, totalExpenses = 0} =
+    combineIncomeAndExpenses(transactions);
   return (
     <View style={styles.parentView}>
       <View style={styles.topContainer}>
         <TopHeader navigation={navigation} title={'Financial Report'} />
-        <Chart></Chart>
+        <Chart
+          transaction={index === 0 ? expenses : incomes}
+          totalLabel={totalIncome - totalExpenses}
+        />
       </View>
       <View style={styles.bottomContainer}>
-        <CustomTabView></CustomTabView>
+        <CustomTabView
+          transactions={index === 0 ? expenses : incomes}
+          index={index}
+          setIndex={setIndex}
+        />
       </View>
     </View>
   );
@@ -240,6 +262,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '500',
     color: '#FD3C4A',
+  },
+  emptyView: {
+    backgroundColor: '#FFF6E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 100,
   },
 });
 

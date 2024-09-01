@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   FlatList,
   Image,
@@ -9,47 +9,14 @@ import {
   View,
 } from 'react-native';
 import {SceneMap, TabView} from 'react-native-tab-view';
+import {useDispatch, useSelector} from 'react-redux';
+import {fetchTransactions, initDatabase} from '../database/Database';
+import {setTransaction} from '../reducers/TransactionReducers';
+import {filterTransactions} from '../constants/FilterTransactions';
+import {combineIncomeAndExpenses} from '../constants/IncomeAndExpenses';
+import {formatDate} from '../components/FormatDate';
 
-const TransactionData = [
-  {
-    id: 1,
-    type: 'Income',
-    amount: 15000,
-    title: 'Income',
-  },
-  {
-    id: 2,
-    type: 'Expenses',
-    amount: 6000,
-    title: 'Food',
-  },
-  {
-    id: 3,
-    type: 'Income',
-    amount: 5000,
-    title: 'Income',
-  },
-  {
-    id: 4,
-    type: 'Expenses',
-    amount: 4000,
-    title: 'Fuel',
-  },
-  {
-    id: 5,
-    type: 'Expenses',
-    amount: 3000,
-    title: 'Shopping',
-  },
-  {
-    id: 6,
-    type: 'Income',
-    amount: 3000,
-    title: 'Income',
-  },
-];
-
-const BalanceComponent = () => {
+const BalanceComponent = ({totalIncome, totalExpenses}) => {
   return (
     <View style={{marginTop: 40, alignItems: 'center'}}>
       <Text
@@ -70,7 +37,7 @@ const BalanceComponent = () => {
           color: '#161719',
           marginTop: 20,
         }}>
-        9400.0
+        {totalIncome - totalExpenses}
       </Text>
 
       <View
@@ -80,14 +47,14 @@ const BalanceComponent = () => {
           justifyContent: 'space-between',
           marginTop: 40,
         }}>
-        <IncomeComponent />
-        <ExpenseComponent />
+        <IncomeComponent totalIncome={totalIncome} />
+        <ExpenseComponent totalExpenses={totalExpenses} />
       </View>
     </View>
   );
 };
 
-const IncomeComponent = () => {
+const IncomeComponent = ({totalIncome}) => {
   return (
     <View flexDirection="row" style={[styles.box, styles.incomeBox]}>
       <View
@@ -113,14 +80,14 @@ const IncomeComponent = () => {
           Income
         </Text>
         <Text style={{fontWeight: '500', fontSize: 22, color: '#FCFCFC'}}>
-          25000
+          {totalIncome}
         </Text>
       </View>
     </View>
   );
 };
 
-const ExpenseComponent = () => {
+const ExpenseComponent = ({totalExpenses}) => {
   return (
     <View flexDirection="row" style={[styles.box, styles.expenseBox]}>
       <View
@@ -151,20 +118,20 @@ const ExpenseComponent = () => {
           Expenses
         </Text>
         <Text style={{fontWeight: '500', fontSize: 22, color: '#FCFCFC'}}>
-          11200
+          {totalExpenses}
         </Text>
       </View>
     </View>
   );
 };
 
-const TransactionItem = ({title, type, amount, index}) => {
+const TransactionItem = ({title, type, amount, index, transactions}) => {
   return (
     <View
       flexDirection="row"
       style={{
         backgroundColor: '#D9D9D9',
-        opacity: type === 'Income' ? 0.5 : 1,
+        opacity: type === 'income' ? 0.5 : 1,
         borderRadius: 5,
         flex: 1,
         marginHorizontal: 20,
@@ -172,7 +139,7 @@ const TransactionItem = ({title, type, amount, index}) => {
         height: 54,
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: index === TransactionData.length - 1 ? 100 : 0,
+        marginBottom: index === transactions.length - 1 ? 100 : 0,
       }}>
       <View flexDirection="row" style={{alignItems: 'center'}}>
         <View
@@ -180,14 +147,14 @@ const TransactionItem = ({title, type, amount, index}) => {
             height: 40,
             width: 40,
             borderRadius: 30,
-            backgroundColor: type === 'Income' ? '#00A86B' : '#FD3C4A',
+            backgroundColor: type === 'income' ? '#00A86B' : '#FD3C4A',
             alignItems: 'center',
             justifyContent: 'center',
             marginStart: 10,
           }}>
           <Image
             source={
-              type === 'Income'
+              type === 'income'
                 ? require('../assets/trans_top_arrow.png')
                 : require('../assets/trans_down_arrow.png')
             }
@@ -218,32 +185,31 @@ const TransactionItem = ({title, type, amount, index}) => {
   );
 };
 
-const FirstRoute = () => (
+const FirstRoute = ({transactionData}) => (
   <View style={{flex: 1}}>
     <FlatList
-      data={TransactionData}
+      data={transactionData}
       renderItem={({item, index}) => (
         <TransactionItem
-          title={item.title}
-          type={item.type}
-          amount={item.amount}
+          title={item.moneyTransaction.finalCategory}
+          type={item.moneyTransaction.tag}
+          amount={item.moneyTransaction.amount}
           index={index}
+          transactions={transactionData}
         />
       )}
       keyExtractor={item => item.id.toString()}></FlatList>
   </View>
 );
 
-const SecondRoute = () => <View style={{flex: 1}} />;
+const CustomTabView = ({transactions}) => {
+  const {
+    todayTransactions,
+    weeklyTransactions,
+    monthlyTransactions,
+    yearlyTransactions,
+  } = filterTransactions(transactions);
 
-const renderScene = SceneMap({
-  today: FirstRoute,
-  week: SecondRoute,
-  month: FirstRoute,
-  year: SecondRoute,
-});
-
-const CustomTabView = () => {
   const layout = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const [routes] = useState([
@@ -252,6 +218,13 @@ const CustomTabView = () => {
     {key: 'month', title: 'Month'},
     {key: 'year', title: 'Year'},
   ]);
+
+  const renderScene = SceneMap({
+    today: () => <FirstRoute transactionData={todayTransactions} />,
+    week: () => <FirstRoute transactionData={weeklyTransactions} />,
+    month: () => <FirstRoute transactionData={monthlyTransactions} />,
+    year: () => <FirstRoute transactionData={yearlyTransactions} />,
+  });
 
   const renderTabBar = props => (
     <View
@@ -291,6 +264,20 @@ const CustomTabView = () => {
 };
 
 const HomeScreen = () => {
+  const dispatch = useDispatch();
+  const transactions = useSelector(state => state.transactions);
+
+  useEffect(() => {
+    const getTransactions = async () => {
+      await initDatabase();
+      const allTransactions = await fetchTransactions();
+      dispatch(setTransaction(allTransactions));
+    };
+    getTransactions();
+  }, [dispatch]);
+
+  const {totalIncome, totalExpenses} = combineIncomeAndExpenses(transactions);
+
   return (
     <View style={styles.parentContainer}>
       <View style={styles.topContainer}>
@@ -301,7 +288,7 @@ const HomeScreen = () => {
               fontSize: 14,
               fontWeight: '400',
             }}>
-            Monday 9 November
+            {formatDate(Date())}
           </Text>
           <View flexDirection="row" style={{alignItems: 'center'}}>
             <Image
@@ -334,11 +321,14 @@ const HomeScreen = () => {
           }}
         />
 
-        <BalanceComponent />
+        <BalanceComponent
+          totalIncome={totalIncome}
+          totalExpenses={totalExpenses}
+        />
       </View>
 
       <View style={styles.bottomContainer}>
-        <CustomTabView></CustomTabView>
+        <CustomTabView transactions={transactions}></CustomTabView>
       </View>
     </View>
   );

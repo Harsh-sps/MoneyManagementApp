@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {
   FlatList,
   Image,
@@ -7,57 +7,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-const TransactionData = [
-  {
-    id: 1,
-    type: 'Expenses',
-    amount: 15000,
-    title: 'Shopping',
-    description: 'Buy some grocery',
-    time: '10:00 AM',
-  },
-  {
-    id: 2,
-    type: 'Expenses',
-    amount: 533,
-    title: 'Food',
-    description: 'Arabian Hut',
-    time: '12:00 AM',
-  },
-  {
-    id: 3,
-    type: 'Income',
-    amount: 5000,
-    title: 'Salary',
-    description: 'Salary for a month',
-    time: '1:00 PM',
-  },
-  {
-    id: 4,
-    type: 'Expenses',
-    amount: 699,
-    title: 'Subscription',
-    description: 'Netflix',
-    time: '2:00 PM',
-  },
-  {
-    id: 5,
-    type: 'Expenses',
-    amount: 1565,
-    title: 'Cinema',
-    description: 'Elante Mall',
-    time: '3:52 PM',
-  },
-  {
-    id: 6,
-    type: 'Expenses',
-    amount: 1232,
-    title: 'Fuel',
-    description: 'HP Pertrol',
-    time: '4:30 PM',
-  },
-];
+import {useDispatch, useSelector} from 'react-redux';
+import {fetchTransactions, initDatabase} from '../database/Database';
+import {setTransaction} from '../reducers/TransactionReducers';
+import {filterTransactions} from '../constants/FilterTransactions';
+import {formatDate} from '../components/FormatDate';
 
 export const TopHeader = ({navigation, title}) => {
   return (
@@ -75,25 +29,26 @@ export const TopHeader = ({navigation, title}) => {
   );
 };
 
-const TransactionItem = ({item, index}) => {
+const TransactionItem = ({item, index, listSize}) => {
+  const finalTransaction = item.moneyTransaction;
   return (
     <View
       style={[
         styles.transactionItem,
-        index === TransactionData.length - 1
-          ? {marginBottom: 180}
-          : {marginBottom: 0},
+        index === listSize ? {marginBottom: 180} : {marginBottom: 0},
       ]}>
       <View style={styles.topHeaderTransactionView}>
-        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.title}>{finalTransaction.finalCategory}</Text>
         <Text style={styles.amount}>
-          {item.type === 'Expenses' ? '-' : '+'} {item.amount}
+          {finalTransaction.tag === 'expenses' ? '-' : '+'}{' '}
+          {finalTransaction.amount}
         </Text>
       </View>
-
       <View style={styles.bottomHeaderTransactionView}>
-        <Text style={styles.bottomText}>{item.description}</Text>
-        <Text style={styles.bottomText}>{item.time}</Text>
+        <Text style={styles.bottomText}>{finalTransaction.description}</Text>
+        <Text style={styles.bottomText}>
+          {formatDate(finalTransaction.date)}
+        </Text>
       </View>
     </View>
   );
@@ -111,38 +66,59 @@ const FilterSection = () => {
           <Text style={styles.filterText}>Month</Text>
         </View>
       </TouchableOpacity>
-
-      {/* This is monthly, yearly or daily filter */}
-      <TouchableOpacity style={[styles.filterBackground]}>
-        <View style={styles.montlyAndAllView}>
-          <Image
-            source={require('../assets/transaction_arrow.png')}
-            style={styles.icon}
-          />
-          <Text style={styles.filterText}>All</Text>
-        </View>
-      </TouchableOpacity>
     </View>
   );
 };
 
 export const TransactionScreen = ({route, navigation}) => {
+  const dispatch = useDispatch();
+  const transactions = useSelector(state => state.transactions);
+
+  useEffect(() => {
+    const getTransactions = async () => {
+      await initDatabase();
+      const allTransactions = await fetchTransactions();
+      dispatch(setTransaction(allTransactions));
+    };
+    getTransactions();
+  }, [dispatch]);
+
+  const {
+    todayTransactions,
+    weeklyTransactions,
+    monthlyTransactions,
+    yearlyTransactions,
+  } = filterTransactions(transactions);
+
+  if (!weeklyTransactions || weeklyTransactions.length === 0) {
+    return (
+      <View style={styles.emptyView}>
+        <Text>No transactions available</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.parentView}>
       <TopHeader navigation={navigation} title={'Transactions'}></TopHeader>
-      <FilterSection></FilterSection>
+      <FilterSection />
       <FlatList
-        data={TransactionData}
+        data={weeklyTransactions}
         renderItem={({item, index}) => (
-          <TransactionItem item={item} index={index} />
+          <TransactionItem
+            item={item}
+            index={index}
+            listSize={weeklyTransactions.length - 1}
+          />
         )}
-        keyExtractor={item => item.id.toString()}></FlatList>
+        keyExtractor={item => item.id.toString()}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  parentView: {backgroundColor: '#FFF6E5'},
+  parentView: {backgroundColor: '#FFF6E5', flex: 1},
   parentFilter: {
     flexDirection: 'row',
   },
@@ -219,5 +195,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#91919F',
     fontWeight: '500',
+  },
+  emptyView: {
+    backgroundColor: '#FFF6E5',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
